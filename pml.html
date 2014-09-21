@@ -203,21 +203,25 @@ You will also use your prediction model to predict 20 different test cases. </p>
 <ul>
 <li>identification fields for user / experiment</li>
 <li>data from accelerometers</li>
-<li>classe column containing the manner in which the exercise was performed; this output is used for training the supervised models used.
-I performed the following operations for data cleansing:</li>
-<li>eliminate predictors with NAs values</li>
-<li>eliminate identification columns so only predictors + output remain</li>
-<li>eliminate correlated predictors; this operation proved to lower a little the accuracy of certain models used</li>
-<li>I also tried to eliminate skewness through Box-Cox pre-processing but finally I gave up because only 1 predictor seemed to be affected</li>
+<li>classe column containing the manner in which the exercise was performed; this output is used for training the supervised models used.<br/></li>
 </ul>
 
-<p>I tried the following 3 models:
-1. random forest model with cross validation with 10 folders and 51 as number of trees to grow; obtained accuracy - 99.2%
-2. model based prediction with cross validation with 10 folders; obtained accuracy - 64%
-3. boost with trees model with cross validation with 10 folders; obtained accuracy - 95%
-So random forest model had the best results, predicting well all 20 test cases :) 
-On second place came boost with trees model and in spite of 95% accuracy it failed to predict several of the 20 test cases :(
-So I tried to &ldquo;boost&rdquo; model 2 and 3 by puting back the correlated predictors. The accuracy increased a little: 71% for model 2 and 96.8% for model 3, but inspite of this, boost with trees model predicted only 19 from the 20 test cases 
+<p>I performed the following operations for data cleansing:  </p>
+
+<ul>
+<li>eliminate predictors with NAs values<br/></li>
+<li>eliminate identification columns so only predictors + output remain<br/></li>
+<li>eliminate correlated predictors; this operation proved to lower a little the accuracy of certain models used<br/></li>
+<li>I also tried to eliminate skewness through Box-Cox pre-processing but finally I gave up because only 1 predictor seemed to be affected<br/></li>
+</ul>
+
+<p>I tried the following 3 models:<br/>
+1. random forest model with cross validation with 10 folders and 51 as number of trees to grow; obtained accuracy - 99.2%<br/>
+2. model based prediction with cross validation with 10 folders; obtained accuracy - 64%<br/>
+3. boost with trees model with cross validation with 10 folders; obtained accuracy - 95%<br/>
+So random forest model had the best results, predicting well all 20 test cases :)<br/>
+On second place came boost with trees model and in spite of 95% accuracy it failed to predict several of the 20 test cases :(<br/>
+So I tried to &ldquo;boost&rdquo; model 2 and 3 by puting back the correlated predictors. The accuracy increased a little: 71% for model 2 and 96.8% for model 3, but inspite of this, boost with trees model predicted only 19 from the 20 test cases<br/>
 As a final remark, I&#39;m sorry I passed over the 2000 words limit.</p>
 
 <h1>Data</h1>
@@ -271,7 +275,7 @@ ncol(testingAll)
 trainingAll &lt;- trainingAll[colSums(is.na(trainingAll)) == 0]
 </code></pre>
 
-<p>Then eliminate first 6 columns used for user/exercise identification:  </p>
+<p>Then eliminate first 7 columns used for user/exercise identification:  </p>
 
 <pre><code class="r">testingAll &lt;- testingAll[, -(1:7)]
 trainingAll &lt;- trainingAll[, -(1:7)]
