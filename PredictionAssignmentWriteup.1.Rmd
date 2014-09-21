@@ -16,52 +16,52 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did.  
 You will also use your prediction model to predict 20 different test cases. 
 
-1. Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
-2. You should also apply your machine learning algorithm to the 20 test cases available in the test data above. Please submit your predictions in appropriate format to the programming assignment for automated grading. See the programming assignment for additional details. 
+# Executive summary
+The training data has over 19K rows and 160 columns:  
+* identification fields for user / experiment
+* data from accelerometers
+* classe column containing the manner in which the exercise was performed; this output is used for training the supervised models used.
+I performed the following operations for data cleansing:
+* eliminate predictors with NAs values
+* eliminate identification columns so only predictors + output remain
+* eliminate correlated predictors; this operation proved to lower a little the accuracy of certain models used
+* I also tried to eliminate skewness through Box-Cox pre-processing but finally I gave up because only 1 predictor seemed to be affected
 
-
+I tried the following 3 models:
+1. random forest model with cross validation with 10 folders and 51 as number of trees to grow; obtained accuracy - 99.2%
+2. model based prediction with cross validation with 10 folders; obtained accuracy - 64%
+3. boost with trees model with cross validation with 10 folders; obtained accuracy - 95%
+So random forest model had the best results, predicting well all 20 test cases :) 
+On second place came boost with trees model and in spite of 95% accuracy it failed to predict several of the 20 test cases :(
+So I tried to "boost" model 2 and 3 by puting back the correlated predictors. The accuracy increased a little: 71% for model 2 and 96.8% for model 3, but inspite of this, boost with trees model predicted only 19 from the 20 test cases 
+As a final remark, I'm sorry I passed over the 2000 words limit.
 
 # Data 
 
 As on windows there are R issues with downloading https://.... I downloaded in an working folder these 2 data files and loaded from there: 
 ```{r}
+library(caret)
+library(e1071)
+library(corrplot)
 #file_trainingAll <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv/pml-training.csv"
 trainingAll <- read.csv(file="pml-training.csv", na.strings = c("NA", ""), stringsAsFactors=FALSE)
 ncol(trainingAll)
 nrow(trainingAll)
-#str(trainingAll)
 
 #file_testingAll <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv/pml-testing.csv"
 testingAll <- read.csv(file="pml-testing.csv", na.strings = c("NA", ""), stringsAsFactors=FALSE)
 ncol(testingAll)
 nrow(testingAll)
-#str(testingAll)
 ```
 
 The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.; they have been very generous in allowing their data to be used for this kind of assignment.
 
 
-# Used libraries
-
-```{r}
-library(caret)
-library(e1071)
-library(corrplot)
-```
-
-
 # Exploratory Data Analysis
 First, we need to get rid of columns with no data, NA-s or constant data with no variance.  
 ```{r}
-ncol(testingAll)
 testingAll <- testingAll[colSums(is.na(testingAll)) == 0]
-ncol(testingAll)
-#head(testingAll)
-
-ncol(trainingAll)
 trainingAll <- trainingAll[colSums(is.na(trainingAll)) == 0]
-ncol(trainingAll)
-#head(trainingAll)
 ```
 
 Then eliminate first 6 columns used for user/exercise identification:  
@@ -73,16 +73,15 @@ trainingAll <- trainingAll[, -(1:7)]
 Set output variable as factor:  
 ```{r}
 trainingAll$classe <- as.factor(trainingAll$classe)
-str(trainingAll)
 ```
 So, we have 52 numerical predictors and 1 categorical output variable to predict, resulting a classification problem :)
 
 # Data preprocessing
-Let's see how correlated are these 52 numerical predictors
+Let's see how correlated are these numerical predictors
 ```{r}
 correl_matrix <- cor(trainingAll[, -ncol(trainingAll)])
 
-## Plot a beautiful correlation matrix
+## Plot correlation matrix
 corrplot(correl_matrix, order="hclust")
 ## findCorrelation from caret package is useful to delete variables with correlation larger than user-defined
 ## threshold
@@ -90,10 +89,11 @@ high_corr <- findCorrelation(correl_matrix,.8)
 ```
 Let's delete highly correlated predictors:
 ```{r}
+trainingAll_with_corr <- trainingAll
 trainingAll <- trainingAll[,-high_corr]
-str(trainingAll)
+ncol(trainingAll)
 ```
-So, we remain with 42 predictors
+So, we remain with 40 predictors
 Now let's see how many of these numerical predictors have nearly zero variance:
 ```{r}
 zerovar <- nearZeroVar(trainingAll[, -ncol(trainingAll)])
@@ -116,7 +116,7 @@ predictors_skewness <- sapply(predictors,skewness)
 predictors_skewness_2 <- sapply(predictors_boxCox,skewness)
 predictors_skewness - predictors_skewness_2
 ```
-As only  magnet_belt_y predictor was Box-Cox processed we can forget about Box-Cox processing :)
+As only  magnet_belt_y predictor has been transformed by the Box-Cox pre-process we can forget about Box-Cox processing :)
 
 # Split available trainingAll dataframe in 2 sets: for training and testing models
 ```{r}
@@ -126,14 +126,11 @@ training <- trainingAll[inTrain, ]
 testing <- trainingAll[-inTrain, ]
 ```
 
-
-
-
 # Model fitting
 
 ## 1. random forest model
 Try a random forest model with cross validation with 10 folders and 51 as number of trees to grow where 51 is a number close to the number of predictors :  
-```{r}
+```{r message=FALSE}
 # train random forest predictive model with cross validation on 10 folds
 # and Number of trees to grow set to predictors number
 model_rf <- train(classe ~., data = training, method = "rf", 
@@ -147,6 +144,7 @@ model_rf_prediction <- predict(model_rf, testing)
 confusion_matrix <- confusionMatrix( model_rf_prediction, testing$classe)
 confusion_matrix$table
 model_rf_accuracy <- confusion_matrix$overall["Accuracy"][[1]]
+model_rf_accuracy
 
 # estimated out-of-sample error 
 out_of_sample_error_rf <- 1 - model_rf_accuracy
@@ -155,7 +153,7 @@ out_of_sample_error_rf
 
 ## 2. model based prediction
 Try a model based prediction with cross validation with 10 folders :  
-```{r}
+```{r message=FALSE}
 model_lda <- train(classe ~., data = training, method = "lda", 
                  trControl = trainControl(method = "cv", number = 10))
 
@@ -166,6 +164,7 @@ model_lda_prediction <- predict(model_lda, testing)
 confusion_matrix <- confusionMatrix( model_lda_prediction, testing$classe)
 confusion_matrix$table
 model_lda_accuracy <- confusion_matrix$overall["Accuracy"][[1]]
+model_lda_accuracy
 
 # estimated out-of-sample error 
 out_of_sample_error <- 1 - model_lda_accuracy
@@ -175,7 +174,7 @@ out_of_sample_error
 
 ## 3. boost with trees model
 Try a boost with trees model  with cross validation with 10 folders :  
-```{r}
+```{r message=FALSE}
 model_gbm <- train(classe ~., data = training, method = "gbm", verbose=FALSE,
                  trControl = trainControl(method = "cv", number = 10))
 
@@ -186,6 +185,7 @@ model_gbm_prediction <- predict(model_gbm, testing)
 confusion_matrix <- confusionMatrix( model_gbm_prediction, testing$classe)
 confusion_matrix$table
 model_gbm_accuracy <- confusion_matrix$overall["Accuracy"][[1]]
+model_gbm_accuracy
 
 # estimated out-of-sample error 
 out_of_sample_error <- 1 - model_gbm_accuracy
@@ -194,7 +194,7 @@ out_of_sample_error
 ```
 
 
-# Predict the 20 requested tests with each of tried models and compare the predictions with WinMerge
+# Predict the 20 requested tests with the best of the tried models
 ```{r}
 final_predictions_based_on_rf <- predict(model_rf, testingAll)
 final_predictions_based_on_lda <- predict(model_lda, testingAll)
@@ -214,7 +214,10 @@ Prediction done with boost with trees model:
 ```{r}
 final_predictions_based_on_gbm
 ```
-As you can see, all 3 predictions are identical.
+As you can see, all 3 predictions are not identical and I used the prediction generated by random forest model with cross validation with 10 folders and 51 as number of trees because it has the best accuracy:
+```{r}
+round(model_rf_accuracy, 3)
+```
 
 # Prediction Assignment Submission
 
@@ -227,10 +230,67 @@ pml_write_files = function(x, folder){
   }
 }
 pml_write_files(final_predictions_based_on_rf, "rf")
+```
 
-pml_write_files(final_predictions_based_on_lda, "lda")
+# Another try with lda and gbm models but without eliminating correlated predictors
+As the 3 models have different predictions I try again lda and gbm models but without eliminating correlated predictors:  
+```{r}
+inTrain <- createDataPartition(y = trainingAll_with_corr$classe, p=0.7, list=FALSE)
+training <- trainingAll_with_corr[inTrain, ]
+testing <- trainingAll_with_corr[-inTrain, ]
+```
+## 2.1 model based prediction without eliminating correlated predictors
+Try a model based prediction with cross validation with 10 folders :  
+```{r message=FALSE}
+model_lda <- train(classe ~., data = training, method = "lda", 
+                 trControl = trainControl(method = "cv", number = 10))
 
-pml_write_files(final_predictions_based_on_rf, "gbm")
+# apply lda model to testing set
+model_lda_prediction <- predict(model_lda, testing)
+
+# compute confusion matrix for lda model
+confusion_matrix <- confusionMatrix( model_lda_prediction, testing$classe)
+confusion_matrix$table
+model_lda_accuracy <- confusion_matrix$overall["Accuracy"][[1]]
+model_lda_accuracy
+
+# estimated out-of-sample error 
+out_of_sample_error <- 1 - model_lda_accuracy
+out_of_sample_error
+
+```
+
+## 3.1 boost with trees model without eliminating correlated predictors
+Try a boost with trees model  with cross validation with 10 folders :  
+```{r message=FALSE}
+model_gbm <- train(classe ~., data = training, method = "gbm", verbose=FALSE,
+                 trControl = trainControl(method = "cv", number = 10))
+
+# apply gbm model to testing set
+model_gbm_prediction <- predict(model_gbm, testing)
+
+# compute confusion matrix for gbm model
+confusion_matrix <- confusionMatrix( model_gbm_prediction, testing$classe)
+confusion_matrix$table
+model_gbm_accuracy <- confusion_matrix$overall["Accuracy"][[1]]
+model_gbm_accuracy
+
+# estimated out-of-sample error 
+out_of_sample_error <- 1 - model_gbm_accuracy
+out_of_sample_error
+
+final_predictions_based_on_lda <- predict(model_lda, testingAll)
+final_predictions_based_on_gbm <- predict(model_gbm, testingAll)
+```
+
+Prediction done with lda model:  
+```{r}
+final_predictions_based_on_lda
+```
+
+Prediction done with boost with trees model:  
+```{r}
+final_predictions_based_on_gbm
 ```
 
 
